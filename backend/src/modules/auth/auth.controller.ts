@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { registerUser } from "./auth.service.js";
-import { registerSchema } from "./auth.validation.js";
+import { registerUser, loginUser } from "./auth.service.js";
+import { registerSchema, loginSchema } from "./auth.validation.js";
 
 export async function register(
     req: Request,
@@ -33,4 +33,26 @@ export async function register(
     } catch (error) {
         next(error);
     }
+}
+
+export async function login(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = loginSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: result.error.issues,
+      });
+    }
+
+    const data = await loginUser(result.data);
+
+    return res.status(200).json({
+      message: "Login successful",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
 }

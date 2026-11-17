@@ -1,7 +1,8 @@
 import argon2 from "@node-rs/argon2";
-import { findUserByEmail, createUser } from "./auth.repository.js";
+import { findUserByEmail, createUser, findUserForLogin, createAuthSession } from "./auth.repository.js";
 import type { RegisterInput } from "./auth.types.js";
-import { email } from "zod";
+import { generateAccessToken, generateRefreshToken, hashRefreshToken } from "./auth.token.js";
+import type { LoginInput } from "./auth.validation.js";
 
 export async function registerUser(data: RegisterInput) {
     const existingUser = await findUserByEmail(data.email);
@@ -33,4 +34,40 @@ export async function registerUser(data: RegisterInput) {
 
         throw error;
     }
+}
+
+export async function loginUser(data: LoginInput) {
+    const user = await findUserForLogin(data.email);
+
+    if (!user) {
+        throw new Error("Invalid Email or Password");
+    }
+
+    const isPasswordValid = await argon2.verify(
+        user.passwordHash,
+        data.password
+    );
+
+    if (!isPasswordValid) {
+        throw new Error("Invalid Email or Password");
+    }
+
+    const accessToken = await generateAccessToken(user.id);
+    const refreshToken = generateRefreshToken();
+
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    await createAuthSession(user.id, refreshTokenHash, expiresAt);
+
+    return {
+        user: {
+            id: user.id,
+            email: user.email,
+        },
+        accessToken,
+        refreshToken,
+    };
 }

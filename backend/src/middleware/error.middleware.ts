@@ -15,6 +15,13 @@ export function errorMiddleware(
         return;
     }
 
+    if (error.message === "Invalid Email or Password") {
+        res.status(401).json({
+            message: error.message,
+        });
+        return;
+    }
+
     res.status(500).json({
         message: "Internal server error",
     });
