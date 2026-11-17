@@ -741,70 +741,67 @@ Do not repeat password-reset troubleshooting unless new evidence indicates a cre
 
 Health endpoint:
 
-GET /health
+`GET /health`
 
 Local API:
 
-http://localhost:5000
+`http://localhost:5000`
 
 ## 10.2 Authentication — REGISTRATION COMPLETED
 
 Created the Auth module:
 
-    auth/
-        auth.routes.ts
-        auth.controller.ts
-        auth.service.ts
-        auth.repository.ts
-        auth.validation.ts
-        auth.types.ts
+```text
+auth/
+    auth.routes.ts
+    auth.controller.ts
+    auth.service.ts
+    auth.repository.ts
+    auth.validation.ts
+    auth.types.ts
+    auth.token.ts
+```
 
-### Validation
-- Zod schema.
-- Email is trimmed.
-- Email is converted to lowercase.
+### Registration Validation
+
+- Zod schema implemented.
+- Email is trimmed and converted to lowercase.
 - Email format is validated.
 - Password minimum length: 12 characters.
 - Password maximum length: 128 characters.
 - Password is not automatically trimmed or modified.
 
-### Repository
+### Registration Repository
+
 Implemented:
-- findUserByEmail()
-- createUser()
+
+- `findUserByEmail()`
+- `createUser()`
 
 Uses Prisma for database operations.
 
-### Service
+### Registration Service
+
 Implemented:
+
 - Duplicate-email check.
 - Argon2id password hashing.
 - User creation.
 - Public user response.
+- Duplicate database constraint error handling.
 
-### Controller
-Implemented:
-- Request validation.
-- Service invocation.
-- Success response.
-- Error forwarding.
+### Registration Controller and Routes
 
-### Routes
+Implemented request validation, service invocation, success responses, and error forwarding.
 
-POST /api/v1/auth/register
+Endpoint:
 
-### Error Handling
-Centralized Express error middleware added.
-
-Expected outcomes:
-- 201 — Registration successful.
-- 400 — Invalid input.
-- 409 — Duplicate email.
-- 500 — Unexpected server error.
+`POST /api/v1/auth/register`
 
 ### Registration Testing
 
 Verified:
+
 - New valid user registration.
 - Duplicate registration.
 - Invalid email.
@@ -815,35 +812,161 @@ Verified:
 
 **Registration is working correctly.**
 
-### Current Improvement
+## 10.3 Login Authentication — IMPLEMENTATION IN PROGRESS
 
-The initial centralized error middleware uses a simple error-message check for duplicate email. Replace this with typed application errors as the error-handling system matures.
+### Login Validation
+
+Added `loginSchema` using Zod.
+
+Validation rules:
+
+- Email is validated using `z.email()`.
+- Email is trimmed.
+- Email is converted to lowercase.
+- Password must not be empty.
+- Password maximum length: 128 characters.
+
+Login does not repeat the registration password-strength rule. Existing credentials should be checked rather than rejected because of registration-only requirements.
+
+### Login Repository
+
+Added:
+
+- `findUserForLogin(email)`
+
+Uses Prisma `findUnique()` to retrieve:
+
+- User ID.
+- Email.
+- Password hash.
+
+Only the fields needed for authentication are selected.
+
+### Token Utilities
+
+Created:
+
+`src/modules/auth/auth.token.ts`
+
+Installed:
+
+`jose`
+
+Implemented:
+
+- `generateAccessToken(userId)`
+- `verifyAccessToken(token)`
+- `generateRefreshToken()`
+- `hashRefreshToken(token)`
+
+#### Access Token
+
+- JWT-based.
+- Signed using HS256.
+- Lifetime: 15 minutes.
+- Includes user ID as the subject.
+- Includes issuer and audience claims.
+- Verified using `jose`.
+
+#### Refresh Token
+
+- Generated using Node.js `crypto.randomBytes(32)`.
+- Encoded using Base64URL.
+- Stored in the database only as a SHA-256 hash.
+
+### Login Service
+
+Implemented `loginUser(data)`.
+
+Current workflow:
+
+1. Find user by normalized email.
+2. Return a generic authentication error if the user does not exist.
+3. Verify password using Argon2.
+4. Return the same generic authentication error if the password is incorrect.
+5. Generate an access token.
+6. Generate a refresh token.
+7. Hash the refresh token.
+8. Calculate a seven-day session expiry.
+9. Create an authentication session in the database.
+10. Return public user information and both tokens.
+
+The raw refresh token is returned to the client but never stored in the database.
+
+### Authentication Session Repository
+
+Added:
+
+`createAuthSession(userId, refreshTokenHash, expiresAt)`
+
+Uses Prisma to create an `AuthSession` record.
+
+The existing Prisma model already supports:
+
+- User association.
+- Optional device association.
+- Unique refresh-token hash.
+- Expiration date.
+- Revocation timestamp.
+- Last-used timestamp.
+- Creation timestamp.
+
+No schema changes were required.
+
+### Login Controller and Route
+
+Added the login controller with:
+
+- Request validation.
+- Login service invocation.
+- Success response.
+- Error forwarding.
+
+Added endpoint:
+
+`POST /api/v1/auth/login`
+
+### Current Login Issue — UNDER INVESTIGATION
+
+The login implementation has been added, but incorrect credentials are currently producing HTTP 500 instead of the expected HTTP 401.
+
+The error middleware was updated to recognize the `"Invalid email or password"` message, but the issue remains unresolved.
+
+Possible causes still need verification:
+
+- Error message mismatch.
+- Error middleware behavior.
+- Middleware registration order.
+- An unexpected error occurring before credential verification.
+
+**Login must not be marked complete until the issue is identified and successful and unsuccessful login cases are tested.**
 
 ---
 
-# 11. NEXT DEVELOPMENT PHASE — LOGIN AUTHENTICATION
-
-The next feature is login.
+# 11. AUTHENTICATION DESIGN AND REMAINING WORK
 
 ## 11.1 Authentication Strategy
 
 ### Access Token
+
 - JWT.
-- Proposed lifetime: 15 minutes.
-- Used to authenticate protected API requests.
+- Lifetime: 15 minutes.
+- Used for protected API requests.
 - Sent through the Authorization Bearer header.
 
 ### Refresh Token
-- Cryptographically random opaque token.
-- Proposed lifetime: 7 days.
-- Store only its hash in AuthSession.
-- Rotate when used.
-- Revoke sessions on logout.
 
-### Token Libraries
-- jose for JWT signing and verification.
-- Node.js built-in crypto for refresh token generation and hashing.
-- Argon2 for password hashing.
+- Cryptographically random opaque token.
+- Lifetime: 7 days.
+- Only its hash is stored in `AuthSession`.
+- Must be rotated when used.
+- Sessions must be revocable on logout.
+
+### Libraries
+
+- `jose` — JWT signing and verification.
+- Node.js `crypto` — Refresh-token generation and hashing.
+- `argon2` — Password hashing and verification.
 
 ## 11.2 Login Workflow
 
@@ -853,27 +976,24 @@ The next feature is login.
 4. Verify password using Argon2.
 5. Generate access token.
 6. Generate refresh token.
-7. Store refresh token hash in AuthSession.
-8. Return tokens and public user information.
+7. Hash refresh token.
+8. Store the hash in `AuthSession`.
+9. Return tokens and public user information.
 
-Never return password hashes or expose raw refresh tokens in database records.
+## 11.3 Remaining Authentication Tasks
 
-## 11.3 Login Implementation Sequence
-
-1. Create auth.token.ts.
-2. Install jose.
-3. Add JWT signing secret to `.env`.
-4. Add placeholder to `.env.example`.
-5. Create login validation schema.
-6. Add repository operations for session creation and lookup.
-7. Implement login service.
-8. Implement login controller.
-9. Add POST /api/v1/auth/login.
-10. Test successful and unsuccessful login.
-11. Implement refresh-token rotation.
-12. Implement logout and session revocation.
-13. Add authentication middleware.
-14. Protect user-specific routes.
+1. Resolve the current HTTP 500 error.
+2. Verify successful login.
+3. Verify incorrect-password and nonexistent-user responses.
+4. Verify validation errors.
+5. Verify session creation in PostgreSQL.
+6. Verify that the database stores only the refresh-token hash.
+7. Implement refresh-token lookup and validation.
+8. Implement refresh-token rotation.
+9. Implement session revocation on logout.
+10. Implement authentication middleware.
+11. Protect user-specific routes.
+12. Test authorization and session expiry.
 
 ---
 
@@ -881,24 +1001,25 @@ Never return password hashes or expose raw refresh tokens in database records.
 
 After authentication:
 
-1. Email verification.
-2. Password reset.
-3. User profile and account management.
-4. Authentication middleware.
-5. Reel saving and library APIs.
-6. Category management.
-7. Collection management.
-8. Notes.
-9. Search and filters.
-10. Reel statuses.
-11. Rediscovery.
-12. Instagram URL handling.
-13. Android share-to-app integration.
-14. Instagram ZIP import.
-15. BullMQ background processing.
-16. Device and notification management.
-17. Mobile application integration.
-18. Testing, documentation, and deployment.
+1. Complete login and session management.
+2. Email verification.
+3. Password reset.
+4. User profile and account management.
+5. Authentication middleware.
+6. Reel saving and library APIs.
+7. Category management.
+8. Collection management.
+9. Notes.
+10. Search and filters.
+11. Reel statuses.
+12. Rediscovery.
+13. Instagram URL handling.
+14. Android share-to-app integration.
+15. Instagram ZIP import.
+16. BullMQ background processing.
+17. Device and notification management.
+18. Mobile application integration.
+19. Testing, documentation, and deployment.
 
 ---
 
@@ -931,7 +1052,8 @@ These principles apply throughout ReelVault development:
 
 # 14. CURRENT PROJECT CHECKPOINT
 
-**Completed:**
+## Completed
+
 - Requirements Analysis.
 - Database design.
 - Technology selection.
@@ -948,14 +1070,30 @@ These principles apply throughout ReelVault development:
 - Registration route.
 - Centralized error middleware.
 - Registration API testing.
-- GitHub checkpoint.
+- JWT and refresh-token utility implementation.
+- Login validation.
+- Login user lookup repository.
+- Login service implementation.
+- Authentication session creation repository.
+- Login controller.
+- Login route.
 
-**Currently working on:**
-- Login authentication.
-- Token generation and session management.
+## Currently Working On
 
-**Immediate next task:**
-Create `src/modules/auth/auth.token.ts` and implement token utilities using jose and Node.js crypto.
+- Debugging HTTP 500 responses for invalid login credentials.
+- Testing successful login and session persistence.
+- Completing authentication and session management.
+
+## Immediate Next Task
+
+Inspect and debug:
+
+- `src/middleware/error.middleware.ts`
+- Terminal error output from an unsuccessful login request.
+
+Identify why `"Invalid email or password"` is still resulting in HTTP 500 instead of HTTP 401.
+
+Do not move on to refresh-token rotation until the login flow is working and tested.
 
 ---
 

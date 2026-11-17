@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
-import { registerUser, loginUser } from "./auth.service.js";
-import { registerSchema, loginSchema } from "./auth.validation.js";
+import { registerUser, loginUser, refreshUserSession } from "./auth.service.js";
+import { registerSchema, loginSchema, refreshTokenSchema } from "./auth.validation.js";
 
 export async function register(
     req: Request,
@@ -50,6 +50,28 @@ export async function login(req: Request, res: Response, next: NextFunction) {
 
     return res.status(200).json({
       message: "Login successful",
+      data,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function refresh(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = refreshTokenSchema.safeParse(req.body);
+
+    if (!result.success) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: result.error.issues,
+      });
+    }
+
+    const data = await refreshUserSession(result.data.refreshToken);
+
+    return res.status(200).json({
+      message: "Token refreshed successfully",
       data,
     });
   } catch (error) {

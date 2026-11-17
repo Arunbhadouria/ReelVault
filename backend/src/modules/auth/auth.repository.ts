@@ -48,3 +48,40 @@ export async function createAuthSession(
         },
     });
 }
+
+export async function findAuthSessionByRefreshTokenHash(refreshTokenHash: string) {
+    return prisma.authSession.findUnique({
+        where: {
+            refreshTokenHash,
+        },
+        select: {
+            id: true,
+            userId: true,
+            expiresAt: true,
+            revokedAt: true,
+        },
+    });
+}
+
+export async function rotateAuthSession(
+    id: string,
+    oldRefreshTokenHash: string,
+    newRefreshTokenHash: string,
+    expiresAt: Date
+) {
+    return prisma.authSession.updateMany({
+        where: {
+            id,
+            refreshTokenHash: oldRefreshTokenHash,
+            revokedAt: null,
+            expiresAt: {
+                gt: new Date(),
+            },
+        },
+        data: {
+            refreshTokenHash: newRefreshTokenHash,
+            expiresAt,
+            lastUsedAt: new Date(),
+        },
+    });
+}

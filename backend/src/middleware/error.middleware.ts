@@ -22,6 +22,13 @@ export function errorMiddleware(
         return;
     }
 
+    if (error.message === "Invalid refresh token" || error.message === "Refresh session expired or revoked" || error.message === "Refresh token is no longer valid") {
+        res.status(401).json({
+            message: error.message,
+        });
+        return;
+    }
+
     res.status(500).json({
         message: "Internal server error",
     });

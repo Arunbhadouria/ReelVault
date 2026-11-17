@@ -1,5 +1,5 @@
 import argon2 from "@node-rs/argon2";
-import { findUserByEmail, createUser, findUserForLogin, createAuthSession } from "./auth.repository.js";
+import { findUserByEmail, createUser, findUserForLogin, createAuthSession, findAuthSessionByRefreshTokenHash, rotateAuthSession } from "./auth.repository.js";
 import type { RegisterInput } from "./auth.types.js";
 import { generateAccessToken, generateRefreshToken, hashRefreshToken } from "./auth.token.js";
 import type { LoginInput } from "./auth.validation.js";
@@ -69,5 +69,45 @@ export async function loginUser(data: LoginInput) {
         },
         accessToken,
         refreshToken,
+    };
+}
+
+export async function refreshUserSession(refreshToken: string) {
+    const oldRefreshTokenHash = hashRefreshToken(refreshToken);
+
+    const session = await findAuthSessionByRefreshTokenHash(
+        oldRefreshTokenHash
+    );
+
+    if (!session) {
+        throw new Error("Invalid refresh token");
+    }
+
+    if (session.revokedAt || session.expiresAt <= new Date()) {
+        throw new Error("Refresh session expired or revoked");
+    }
+
+    const newRefreshToken = generateRefreshToken();
+    const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const result = await rotateAuthSession(
+        session.id,
+        oldRefreshTokenHash,
+        newRefreshTokenHash,
+        expiresAt
+    );
+
+    if (result.count !== 1) {
+        throw new Error("Refresh token is no longer valid");
+    }
+
+    const accessToken = await generateAccessToken(session.userId);
+
+    return {
+        accessToken,
+        refreshToken: newRefreshToken,
     };
 }
