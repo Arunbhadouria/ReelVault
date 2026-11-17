@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReelStatus {
+  TO_WATCH
+  WATCHED
+  COMPLETED
+  ARCHIVED
+}
+
+enum AvailabilityStatus {
+  UNKNOWN
+  AVAILABLE
+  UNAVAILABLE
+  RESTRICTED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RediscoveryFrequency {
+  DAILY
+  WEEKLY
+  CUSTOM
+}
+
+enum InteractionType {
+  OPENED
+  COMPLETED
+  SKIPPED
+  DISMISSED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+}
+
+enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  passwordHash  String   @db.VarChar(255)
+  emailVerified Boolean  @default(false)
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(6)
+
+  reels              Reel[]
+  categories         Category[]
+  collections        Collection[]
+  importBatches      ImportBatch[]
+  rediscoveryHistory RediscoveryHistory[]
+  preference         UserPreference?
+  devices            Device[]
+  authSessions       AuthSession[]
+  authTokens         AuthToken[]
+}
+
+model Reel {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @db.Uuid
+  url                String             @db.Text
+  normalizedUrl      String             @db.Text
+  caption            String?            @db.Text
+  thumbnailUrl       String?            @db.Text
+  status             ReelStatus         @default(TO_WATCH)
+  availabilityStatus AvailabilityStatus @default(UNKNOWN)
+  savedAt            DateTime           @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rediscoveryHistory RediscoveryHistory[]
+  notes              Note[]
+  categories         ReelCategory[]
+  collections        CollectionReel[]
+
+  @@unique([userId, normalizedUrl])
+  @@unique([id, userId])
+  @@index([userId, savedAt])
+  @@index([userId, status, savedAt])
+}
+
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  name      String   @db.VarChar(100)
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reels ReelCategory[]
+
+  @@unique([userId, name])
+  @@unique([id, userId])
+}
+
+model ReelCategory {
+  reelId     String @db.Uuid
+  categoryId String @db.Uuid
+  userId     String @db.Uuid
+
+  reel     Reel     @relation(fields: [reelId, userId], references: [id, userId], onDelete: Cascade)
+  category Category @relation(fields: [categoryId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@id([reelId, categoryId])
+  @@index([categoryId, reelId])
+}
+
+model Collection {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reels CollectionReel[]
+
+  @@unique([userId, name])
+  @@unique([id, userId])
+}
+
+model CollectionReel {
+  reelId       String @db.Uuid
+  collectionId String @db.Uuid
+  userId       String @db.Uuid
+
+  reel       Reel       @relation(fields: [reelId, userId], references: [id, userId], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@id([reelId, collectionId])
+  @@index([collectionId, reelId])
+}
+
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid
+  reelId    String   @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  reel Reel @relation(fields: [reelId], references: [id], onDelete: Cascade)
+
+  @@index([reelId, createdAt])
+}
+
+model ImportBatch {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  status         ImportStatus @default(PENDING)
+  totalFound     Int          @default(0)
+  importedCount  Int          @default(0)
+  duplicateCount Int          @default(0)
+  failedCount    Int          @default(0)
+  errorSummary   String?      @db.Text
+  startedAt      DateTime?    @db.Timestamptz(6)
+  completedAt    DateTime?    @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model RediscoveryHistory {
+  id              String           @id @default(uuid()) @db.Uuid
+  userId          String           @db.Uuid
+  reelId          String           @db.Uuid
+  shownAt         DateTime         @default(now()) @db.Timestamptz(6)
+  interactionType InteractionType?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reel Reel @relation(fields: [reelId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@index([userId, shownAt])
+}
+
+model UserPreference {
+  userId               String               @id @db.Uuid
+  rediscoveryEnabled   Boolean              @default(true)
+  frequency            RediscoveryFrequency @default(DAILY)
+  customSchedule       Json?                @db.JsonB
+  notificationsEnabled Boolean              @default(false)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Device {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @db.Uuid
+  pushToken String?        @unique @db.Text
+  platform  DevicePlatform
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authSessions AuthSession[]
+
+  @@unique([id, userId])
+  @@index([userId])
+}
+
+model AuthSession {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  deviceId         String?   @db.Uuid
+  refreshTokenHash String    @unique @db.VarChar(255)
+  expiresAt        DateTime  @db.Timestamptz(6)
+  revokedAt        DateTime? @db.Timestamptz(6)
+  lastUsedAt       DateTime? @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AuthToken {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  tokenHash  String           @unique @db.VarChar(255)
+  purpose    AuthTokenPurpose
+  expiresAt  DateTime         @db.Timestamptz(6)
+  consumedAt DateTime?        @db.Timestamptz(6)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
