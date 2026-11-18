@@ -1,5 +1,5 @@
 import argon2 from "@node-rs/argon2";
-import { findUserByEmail, createUser, findUserForLogin, createAuthSession, findAuthSessionByRefreshTokenHash, rotateAuthSession } from "./auth.repository.js";
+import { findUserByEmail, createUser, findUserForLogin, createAuthSession, findAuthSessionByRefreshTokenHash, rotateAuthSession, revokeAuthSession } from "./auth.repository.js";
 import type { RegisterInput } from "./auth.types.js";
 import { generateAccessToken, generateRefreshToken, hashRefreshToken } from "./auth.token.js";
 import type { LoginInput } from "./auth.validation.js";
@@ -109,5 +109,15 @@ export async function refreshUserSession(refreshToken: string) {
     return {
         accessToken,
         refreshToken: newRefreshToken,
+    };
+}
+
+export async function logoutUser(refreshToken: string) {
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+
+    await revokeAuthSession(refreshTokenHash);
+
+    return {
+        message: "Logged out successfully",
     };
 }

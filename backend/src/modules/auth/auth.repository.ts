@@ -85,3 +85,16 @@ export async function rotateAuthSession(
         },
     });
 }
+
+export async function revokeAuthSession(refreshTokenHash: string) {
+    return prisma.authSession.updateMany({
+        where: {
+            refreshTokenHash,
+            revokedAt: null,
+        },
+        data: {
+            revokedAt: new Date(),
+        },
+    });
+
+}
