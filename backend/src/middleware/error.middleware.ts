@@ -8,7 +8,7 @@ export function errorMiddleware(
 ) {
     console.error(error);
 
-    if (error.message === "Email is already registered") {
+    if (error.message === "Email is already registered" || error.message === "Category name already exists") {
         res.status(409).json({
             message: error.message,
         });
@@ -29,7 +29,11 @@ export function errorMiddleware(
         return;
     }
 
-    if (error.message === "User not found" || error.message === "Reel not found") {
+    if (
+        error.message === "User not found" ||
+        error.message === "Reel not found" ||
+        error.message === "Category not found"
+    ) {
         res.status(404).json({
             message: error.message,
         });

@@ -1088,14 +1088,25 @@ These principles apply throughout ReelVault development:
   - Controller & Routes (`POST /reels`, `GET /reels`, `GET /reels/:reelId`, `PATCH /reels/:reelId`, `DELETE /reels/:reelId`).
   - Mounted in `app.ts` under `/api/v1/reels`.
 
+- Complete Categories Management Module (`/api/v1/categories`):
+  - Validation with Zod enforcing 1–100 character trimmed category names.
+  - Repository layer with M:N junction operations (`ReelCategory`), unique constraint indexing, and `_count` aggregation.
+  - Service layer with duplicate name conflict prevention, self-collision exclusion, and dual-resource ownership checks.
+  - Controller & Routes (`GET /categories`, `POST /categories`, `PATCH /categories/:id`, `DELETE /categories/:id`).
+  - Many-to-Many junction routes on Reels (`POST /reels/:reelId/categories/:categoryId`, `DELETE /reels/:reelId/categories/:categoryId`).
+  - Mounted in `app.ts` under `/api/v1/categories`.
+
 ## Currently Working On
 
-- Postman verification of the Core Reels endpoints.
-- Next Module: Categories & Collections Management (`/api/v1/categories`, `/api/v1/collections`).
+- Next Module: Collections Management (`/api/v1/collections`):
+  - Step 1: Validation, Types & Repository (`collections.validation.ts`, `collections.types.ts`, `collections.repository.ts`).
+  - Step 2: Service layer: duplicate name detection and Reel grouping operations.
+  - Step 3: Controller & routes (`POST /collections`, `GET /collections`, `GET /collections/:id`, `PATCH /collections/:id`, `DELETE /collections/:id`, `POST/DELETE /reels/:reelId/collections/:collectionId`).
+  - Step 4: Mount in `app.ts` and verify.
 
 ## Immediate Next Task
 
-Verify Core Reels endpoints in Postman, then proceed to the Categories module.
+Proceed to Step 1 of the Collections Module: create `collections.validation.ts`, `collections.types.ts`, and `collections.repository.ts`.
 
 ---
 

@@ -7,6 +7,10 @@ import {
   updateReelHandler,
   deleteReelHandler,
 } from "./reels.controller.js";
+import {
+  assignReelCategoryHandler,
+  removeReelCategoryHandler,
+} from "../categories/categories.controller.js";
 
 const router = Router();
 
@@ -24,5 +28,17 @@ router.patch("/:reelId", authenticate, updateReelHandler);
 
 // Delete saved Reel
 router.delete("/:reelId", authenticate, deleteReelHandler);
+
+// Category Associations (Many-to-Many junction routes)
+router.post(
+  "/:reelId/categories/:categoryId",
+  authenticate,
+  assignReelCategoryHandler,
+);
+router.delete(
+  "/:reelId/categories/:categoryId",
+  authenticate,
+  removeReelCategoryHandler,
+);
 
 export default router;

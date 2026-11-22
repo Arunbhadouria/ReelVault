@@ -5,6 +5,7 @@ import { errorMiddleware } from "./middleware/error.middleware.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
 import reelRoutes from "./modules/reels/reels.routes.js";
+import categoryRoutes from "./modules/categories/categories.routes.js";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/reels", reelRoutes);
+app.use("/api/v1/categories", categoryRoutes);
 
 app.use(errorMiddleware);
 
