@@ -1055,45 +1055,42 @@ These principles apply throughout ReelVault development:
 ## Completed
 
 - Requirements Analysis.
-- Database design.
-- Technology selection.
-- Backend foundation.
-- Docker-based PostgreSQL and Redis setup.
-- Prisma configuration.
-- Express server.
-- Health endpoint.
-- Auth module structure.
-- Registration validation.
-- User repository.
-- Registration service.
-- Registration controller.
-- Registration route.
-- Centralized error middleware.
-- Registration API testing.
-- JWT and refresh-token utility implementation.
-- Login validation.
-- Login user lookup repository.
-- Login service implementation.
-- Authentication session creation repository.
-- Login controller.
-- Login route.
+- Database design and schema modeling (Prisma + PostgreSQL).
+- Technology selection (Node.js, Express, TypeScript, Zod, Argon2, Jose, BullMQ).
+- Backend foundation with Docker-based PostgreSQL.
+- Express server foundation with Helmet, CORS, and health endpoint.
+- Complete Authentication Module:
+  - User registration (`POST /api/v1/auth/register`) with RFC 5321 email validation and Argon2id hashing.
+  - User login (`POST /api/v1/auth/login`) with HS256 JWT access tokens (15m) and opaque refresh tokens (7d).
+  - Refresh token rotation & revocation (`POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`) with SHA-256 hash persistence in `AuthSession`.
+  - Authentication middleware (`auth.middleware.ts`) enforcing Bearer JWT validation and attaching `req.userId`.
+  - Centralized error middleware (`error.middleware.ts`).
+- API Design Decisions documented (`docs/api/API-decisions.md`).
+- OpenAPI 3.1.0 specification authored & updated (`docs/api/openapi.yaml`):
+  - Added HTTP Bearer JWT security scheme definition (`bearerAuth`).
+  - Auth endpoints (`/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`).
+  - User endpoints (`GET /users/me`, `DELETE /users/me`).
+  - Core Reel API: `POST /reels` (idempotent duplicate detection returning 200 vs 201), `GET /reels` (paginated library with status/category/collection filtering), `GET /reels/{reelId}`, `PATCH /reels/{reelId}`, and `DELETE /reels/{reelId}`.
+  - Categories API: CRUD for topic categories (`/categories`, `/categories/{id}`) and Reel assignment/unassignment (`POST/DELETE /reels/{reelId}/categories/{categoryId}`) with `409 Conflict` on duplicate names.
+  - Collections API: CRUD for project collections (`/collections`, `/collections/{id}`) and Reel grouping (`POST/DELETE /reels/{reelId}/collections/{collectionId}`).
+  - Notes API: Private notes management (`POST /reels/{reelId}/notes`, `GET /reels/{reelId}/notes`, `PATCH /notes/{noteId}`, `DELETE /notes/{noteId}`) with 1–5000 character length limits.
+- Complete User Management Module (`/api/v1/users`):
+  - Repository layer (`findUserById`, `deleteUserById`) with explicit projection and cascade deletion.
+  - Service layer (`getUserProfile`, `deleteUserAccount`) preventing dangling ghost tokens.
+  - Controller & Routes (`GET /api/v1/users/me`, `DELETE /api/v1/users/me`).
+  - Mounted in `app.ts` with `auth.middleware.ts` enforcement.
 
 ## Currently Working On
 
-- Debugging HTTP 500 responses for invalid login credentials.
-- Testing successful login and session persistence.
-- Completing authentication and session management.
+- Next Module: Reels Core Implementation (`/api/v1/reels`):
+  - Step 1: URL validation, Instagram link normalization, and repository queries.
+  - Step 2: Idempotent save logic (handling 200 vs 201).
+  - Step 3: Library retrieval with multi-criteria pagination, filtering, and sorting.
+  - Step 4: Reel updates and cascading deletions.
 
 ## Immediate Next Task
 
-Inspect and debug:
-
-- `src/middleware/error.middleware.ts`
-- Terminal error output from an unsuccessful login request.
-
-Identify why `"Invalid email or password"` is still resulting in HTTP 500 instead of HTTP 401.
-
-Do not move on to refresh-token rotation until the login flow is working and tested.
+Proceed to Step 1 of the Core Reels module: create `reels.validation.ts` (Instagram URL normalization and validation) and `reels.repository.ts`.
 
 ---
 

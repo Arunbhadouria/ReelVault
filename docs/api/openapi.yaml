@@ -1,0 +1,1612 @@
+openapi: 3.1.0
+
+info:
+  title: ReelVault API
+  description: API specification for the ReelVault Instagram Saved Reels Organizer.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User registration, login and session management
+  - name: Users
+    description: Account retrieval and management
+  - name: Reels
+    description: Saved Instagram Reels management, filtering, and status updates
+  - name: Categories
+    description: Content topic categories and Reel categorization
+  - name: Collections
+    description: User-defined groupings, project folders, and collection management
+  - name: Notes
+    description: Private annotations and personal notes for saved Reels
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: user@example.com
+              password: StrongPassword123
+      responses:
+        "201":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterValidationError"
+        "409":
+          description: Email is already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Log in an existing user
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Rotate refresh token and issue a new access token
+      operationId: refreshUserSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefreshResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Refresh token is invalid, expired, or revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke the refresh-token session
+      operationId: logoutUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user's account
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Account retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Users
+      summary: Permanently delete current user's account
+      operationId: deleteCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Account and associated data deleted successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reels:
+    post:
+      tags:
+        - Reels
+      summary: Save an Instagram Reel
+      description: |
+        Saves an Instagram Reel by URL. If the user has already saved this Reel
+        (matching normalizedUrl), the existing record is returned with HTTP 200 OK.
+        Otherwise, a new record is created with HTTP 201 Created.
+      operationId: saveReel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReelRequest"
+            example:
+              url: https://www.instagram.com/reel/C3bXYZ12345/
+      responses:
+        "201":
+          description: Reel saved successfully (new record)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleReelResponse"
+        "200":
+          description: Reel already exists in user's library (duplicate returned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleReelResponse"
+        "400":
+          description: Validation failed (invalid URL or malformed payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    get:
+      tags:
+        - Reels
+      summary: Retrieve saved Reels library
+      description: |
+        Retrieves a paginated list of saved Reels belonging to the authenticated user.
+        Supports filtering by status, category, or collection, and sorting by save date.
+      operationId: listReels
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of items per page (maximum 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          required: false
+          description: Filter by viewing status
+          schema:
+            $ref: "#/components/schemas/ReelStatus"
+        - name: categoryId
+          in: query
+          required: false
+          description: Filter by category UUID
+          schema:
+            type: string
+            format: uuid
+        - name: collectionId
+          in: query
+          required: false
+          description: Filter by collection UUID
+          schema:
+            type: string
+            format: uuid
+        - name: sortBy
+          in: query
+          required: false
+          description: Field to sort by
+          schema:
+            type: string
+            enum:
+              - savedAt
+              - createdAt
+            default: savedAt
+        - name: order
+          in: query
+          required: false
+          description: Sort direction
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
+      responses:
+        "200":
+          description: List of saved Reels with pagination metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedReelsResponse"
+        "400":
+          description: Validation failed on query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reels/{reelId}:
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        description: UUID of the saved Reel
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags:
+        - Reels
+      summary: Retrieve a single Reel by ID
+      operationId: getReelById
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Reel details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleReelResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      tags:
+        - Reels
+      summary: Update editable fields of a saved Reel
+      description: |
+        Allows updating user-controlled fields: caption, thumbnailUrl, and viewing status.
+        System-controlled fields (id, userId, url, normalizedUrl, availabilityStatus) cannot be altered.
+      operationId: updateReel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReelRequest"
+      responses:
+        "200":
+          description: Reel updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleReelResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Reels
+      summary: Permanently delete a saved Reel
+      description: |
+        Deletes the specified Reel and its associated records (notes, category/collection links)
+        via cascading foreign keys.
+      operationId: deleteReel
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Reel deleted successfully (no content returned)
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: List user's categories
+      description: Retrieves all categories created by or assigned to the authenticated user.
+      operationId: listCategories
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoriesListResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags:
+        - Categories
+      summary: Create a category
+      description: Creates a new topic category for organizing Reels. Category names must be unique per user.
+      operationId: createCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+            example:
+              name: Technology
+      responses:
+        "201":
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCategoryResponse"
+        "400":
+          description: Validation failed (empty name or exceeds 100 characters)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /categories/{categoryId}:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        description: UUID of the category
+        schema:
+          type: string
+          format: uuid
+
+    patch:
+      tags:
+        - Categories
+      summary: Update a category name
+      operationId: updateCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryRequest"
+            example:
+              name: Tech & Coding
+      responses:
+        "200":
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCategoryResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Categories
+      summary: Delete a category
+      description: |
+        Deletes the specified category. Reels assigned to this category will not be deleted;
+        only the association in `ReelCategory` is removed via database cascading foreign keys.
+      operationId: deleteCategory
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Category deleted successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reels/{reelId}/categories/{categoryId}:
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        description: UUID of the Reel
+        schema:
+          type: string
+          format: uuid
+      - name: categoryId
+        in: path
+        required: true
+        description: UUID of the category
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags:
+        - Categories
+      summary: Assign a Reel to a category
+      description: Associates an existing Reel with a category. Both resources must belong to the authenticated user.
+      operationId: assignReelToCategory
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Reel successfully assigned to category (or already assigned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Categories
+      summary: Remove a Reel from a category
+      description: Removes the association between the Reel and the category without deleting the Reel itself.
+      operationId: removeReelFromCategory
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Category removed from Reel successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /collections:
+    get:
+      tags:
+        - Collections
+      summary: List user's collections
+      description: Retrieves all collections created by the authenticated user.
+      operationId: listCollections
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Collections retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionsListResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags:
+        - Collections
+      summary: Create a collection
+      description: Creates a user-defined collection/folder. Collection names must be unique per user.
+      operationId: createCollection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCollectionRequest"
+            example:
+              name: Weekend Project Ideas
+              description: Useful tutorials and inspiration for Sunday projects
+      responses:
+        "201":
+          description: Collection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCollectionResponse"
+        "400":
+          description: Validation failed (name missing or exceeds 150 characters)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /collections/{collectionId}:
+    parameters:
+      - name: collectionId
+        in: path
+        required: true
+        description: UUID of the collection
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags:
+        - Collections
+      summary: Get collection details
+      operationId: getCollectionById
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Collection details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCollectionResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    patch:
+      tags:
+        - Collections
+      summary: Update a collection
+      description: Update name and/or description of a collection.
+      operationId: updateCollection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCollectionRequest"
+      responses:
+        "200":
+          description: Collection updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleCollectionResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Collections
+      summary: Delete a collection
+      description: |
+        Deletes the collection. Reels contained within the collection remain intact in the library;
+        only the membership links in `CollectionReel` are deleted.
+      operationId: deleteCollection
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Collection deleted successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reels/{reelId}/collections/{collectionId}:
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        description: UUID of the Reel
+        schema:
+          type: string
+          format: uuid
+      - name: collectionId
+        in: path
+        required: true
+        description: UUID of the collection
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags:
+        - Collections
+      summary: Add a Reel to a collection
+      description: Associates an existing Reel with a collection. Both must belong to the authenticated user.
+      operationId: addReelToCollection
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Reel successfully added to collection (or already present)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Collections
+      summary: Remove a Reel from a collection
+      description: Removes the association between the Reel and the collection without deleting the Reel.
+      operationId: removeReelFromCollection
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Reel removed from collection successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /reels/{reelId}/notes:
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        description: UUID of the Reel
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags:
+        - Notes
+      summary: Retrieve all notes for a Reel
+      description: Returns all private notes added to this Reel, ordered chronologically.
+      operationId: listNotesByReel
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notes retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotesListResponse"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    post:
+      tags:
+        - Notes
+      summary: Add a note to a Reel
+      description: Creates a new private note attached to the specified Reel.
+      operationId: createNote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+            example:
+              content: Try recipe step 2 with extra garlic and sourdough bread.
+      responses:
+        "201":
+          description: Note created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleNoteResponse"
+        "400":
+          description: Validation failed (content empty or exceeds 5000 characters)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /notes/{noteId}:
+    parameters:
+      - name: noteId
+        in: path
+        required: true
+        description: UUID of the note
+        schema:
+          type: string
+          format: uuid
+
+    patch:
+      tags:
+        - Notes
+      summary: Edit a note
+      description: Updates the content of an existing note. The note must belong to a Reel owned by the authenticated user.
+      operationId: updateNote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+            example:
+              content: Updated reminder - prepare ingredients the evening before.
+      responses:
+        "200":
+          description: Note updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleNoteResponse"
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZodValidationError"
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+    delete:
+      tags:
+        - Notes
+      summary: Delete a note
+      description: Permanently removes a note.
+      operationId: deleteNote
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Note deleted successfully
+        "401":
+          description: Authentication required or access token invalid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Stateless JWT access token obtained from /auth/login or /auth/refresh
+
+  schemas:
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: user@example.com
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          example: StrongPassword123
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+
+    UserResponse:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+
+    RegisterResponse:
+      type: object
+      required:
+        - message
+        - user
+      properties:
+        message:
+          type: string
+          example: Registration successful
+        user:
+          allOf:
+            - $ref: "#/components/schemas/UserResponse"
+            - type: object
+              required:
+                - createdAt
+              properties:
+                createdAt:
+                  type: string
+                  format: date-time
+
+    LoginResponse:
+      type: object
+      required:
+        - message
+        - data
+      properties:
+        message:
+          type: string
+          example: Login successful
+        data:
+          type: object
+          required:
+            - user
+            - accessToken
+            - refreshToken
+          properties:
+            user:
+              $ref: "#/components/schemas/UserResponse"
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+
+    RefreshResponse:
+      type: object
+      required:
+        - message
+        - data
+      properties:
+        message:
+          type: string
+          example: Token refreshed successfully
+        data:
+          type: object
+          required:
+            - accessToken
+            - refreshToken
+          properties:
+            accessToken:
+              type: string
+            refreshToken:
+              type: string
+
+    MessageResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+
+    RegisterValidationError:
+      type: object
+      required:
+        - message
+        - errors
+      properties:
+        message:
+          type: string
+          example: Validation Failed
+        errors:
+          type: array
+          items:
+            type: object
+            required:
+              - field
+              - message
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    ZodValidationError:
+      type: object
+      required:
+        - message
+        - errors
+      properties:
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+              path:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              message:
+                type: string
+            additionalProperties: true
+
+    CurrentUserResponse:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          type: object
+          required:
+            - id
+            - email
+            - createdAt
+          properties:
+            id:
+              type: string
+              format: uuid
+            email:
+              type: string
+              format: email
+            createdAt:
+              type: string
+              format: date-time
+
+    ReelStatus:
+      type: string
+      enum:
+        - TO_WATCH
+        - WATCHED
+        - COMPLETED
+        - ARCHIVED
+      description: Current viewing status of the saved Reel
+      example: TO_WATCH
+
+    AvailabilityStatus:
+      type: string
+      enum:
+        - UNKNOWN
+        - AVAILABLE
+        - UNAVAILABLE
+        - RESTRICTED
+      description: System-controlled availability state of the Reel on Instagram
+      example: UNKNOWN
+
+    CreateReelRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Full Instagram Reel URL
+          example: https://www.instagram.com/reel/C3bXYZ12345/
+        caption:
+          type: string
+          nullable: true
+          description: Optional initial caption or summary
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Optional preview image URL
+
+    UpdateReelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        caption:
+          type: string
+          nullable: true
+          description: Editable caption or note summary
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Editable preview thumbnail URL
+        status:
+          $ref: "#/components/schemas/ReelStatus"
+
+    ReelResponse:
+      type: object
+      required:
+        - id
+        - url
+        - normalizedUrl
+        - status
+        - availabilityStatus
+        - savedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          format: uri
+        normalizedUrl:
+          type: string
+          format: uri
+        caption:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ReelStatus"
+        availabilityStatus:
+          $ref: "#/components/schemas/AvailabilityStatus"
+        savedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SingleReelResponse:
+      type: object
+      required:
+        - reel
+      properties:
+        reel:
+          $ref: "#/components/schemas/ReelResponse"
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - totalItems
+        - totalPages
+        - hasNextPage
+        - hasPreviousPage
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        totalItems:
+          type: integer
+          example: 85
+        totalPages:
+          type: integer
+          example: 5
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPreviousPage:
+          type: boolean
+          example: false
+
+    PaginatedReelsResponse:
+      type: object
+      required:
+        - items
+        - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReelResponse"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    CategoryResponse:
+      type: object
+      required:
+        - id
+        - name
+        - isDefault
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Technology
+        isDefault:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        reelsCount:
+          type: integer
+          description: Total number of Reels tagged with this category
+          example: 14
+
+    SingleCategoryResponse:
+      type: object
+      required:
+        - category
+      properties:
+        category:
+          $ref: "#/components/schemas/CategoryResponse"
+
+    CategoriesListResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+
+    CreateCategoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Technology
+
+    UpdateCategoryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Tech & AI
+
+    CollectionResponse:
+      type: object
+      required:
+        - id
+        - name
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Weekend Projects
+        description:
+          type: string
+          nullable: true
+          example: Coding projects and build tutorials
+        createdAt:
+          type: string
+          format: date-time
+        reelsCount:
+          type: integer
+          description: Total number of Reels added to this collection
+          example: 8
+
+    SingleCollectionResponse:
+      type: object
+      required:
+        - collection
+      properties:
+        collection:
+          $ref: "#/components/schemas/CollectionResponse"
+
+    CollectionsListResponse:
+      type: object
+      required:
+        - collections
+      properties:
+        collections:
+          type: array
+          items:
+            $ref: "#/components/schemas/CollectionResponse"
+
+    CreateCollectionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Weekend Projects
+        description:
+          type: string
+          nullable: true
+          example: Coding projects and build tutorials
+
+    UpdateCollectionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: Weekend Coding Projects
+        description:
+          type: string
+          nullable: true
+          example: Updated project notes and inspiration
+
+    NoteResponse:
+      type: object
+      required:
+        - id
+        - reelId
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        reelId:
+          type: string
+          format: uuid
+        content:
+          type: string
+          example: Great idea for weekend build!
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SingleNoteResponse:
+      type: object
+      required:
+        - note
+      properties:
+        note:
+          $ref: "#/components/schemas/NoteResponse"
+
+    NotesListResponse:
+      type: object
+      required:
+        - notes
+      properties:
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/NoteResponse"
+
+    CreateNoteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Note text content (1 - 5000 characters)
+          example: Remember to install the required packages first.
+
+    UpdateNoteRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Updated note text content (1 - 5000 characters)
+          example: Remember to install the required packages and configure environment variables.
+
+  responses:
+    NotFound:
+      description: Requested resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MessageResponse"
+          example:
+            message: Resource not found
+
+    Conflict:
+      description: Conflict with existing resource (e.g. duplicate name)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MessageResponse"
+          example:
+            message: Resource with this name already exists
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MessageResponse"
+          example:
+            message: Internal server error
