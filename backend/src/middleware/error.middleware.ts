@@ -29,8 +29,15 @@ export function errorMiddleware(
         return;
     }
 
-    if (error.message === "User not found") {
+    if (error.message === "User not found" || error.message === "Reel not found") {
         res.status(404).json({
+            message: error.message,
+        });
+        return;
+    }
+
+    if (error.message === "Invalid Instagram Reel URL") {
+        res.status(400).json({
             message: error.message,
         });
         return;

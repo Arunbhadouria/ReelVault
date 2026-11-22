@@ -1079,18 +1079,23 @@ These principles apply throughout ReelVault development:
   - Service layer (`getUserProfile`, `deleteUserAccount`) preventing dangling ghost tokens.
   - Controller & Routes (`GET /api/v1/users/me`, `DELETE /api/v1/users/me`).
   - Mounted in `app.ts` with `auth.middleware.ts` enforcement.
+  - Verified and tested successfully via Postman (profile retrieval, token protection, cascade account deletion).
+
+- Complete Core Reels Module (`/api/v1/reels`):
+  - URL Normalization engine extracting Instagram shortcodes and stripping tracking params.
+  - Repository layer with composite indexing (`userId_normalizedUrl`, `id_userId`) and atomic `$transaction` pagination.
+  - Service layer with idempotent save logic (returning `200` vs `201`) and concurrent `P2002` collision recovery.
+  - Controller & Routes (`POST /reels`, `GET /reels`, `GET /reels/:reelId`, `PATCH /reels/:reelId`, `DELETE /reels/:reelId`).
+  - Mounted in `app.ts` under `/api/v1/reels`.
 
 ## Currently Working On
 
-- Next Module: Reels Core Implementation (`/api/v1/reels`):
-  - Step 1: URL validation, Instagram link normalization, and repository queries.
-  - Step 2: Idempotent save logic (handling 200 vs 201).
-  - Step 3: Library retrieval with multi-criteria pagination, filtering, and sorting.
-  - Step 4: Reel updates and cascading deletions.
+- Postman verification of the Core Reels endpoints.
+- Next Module: Categories & Collections Management (`/api/v1/categories`, `/api/v1/collections`).
 
 ## Immediate Next Task
 
-Proceed to Step 1 of the Core Reels module: create `reels.validation.ts` (Instagram URL normalization and validation) and `reels.repository.ts`.
+Verify Core Reels endpoints in Postman, then proceed to the Categories module.
 
 ---
 
