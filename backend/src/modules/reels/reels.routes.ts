@@ -11,6 +11,14 @@ import {
   assignReelCategoryHandler,
   removeReelCategoryHandler,
 } from "../categories/categories.controller.js";
+import {
+  assignReelCollectionHandler,
+  removeReelCollectionHandler,
+} from "../collections/collections.controller.js";
+import {
+  createNoteHandler,
+  listNotesHandler,
+} from "../notes/notes.controller.js";
 
 const router = Router();
 
@@ -40,5 +48,21 @@ router.delete(
   authenticate,
   removeReelCategoryHandler,
 );
+
+// Collection Associations (Many-to-Many junction routes)
+router.post(
+  "/:reelId/collections/:collectionId",
+  authenticate,
+  assignReelCollectionHandler,
+);
+router.delete(
+  "/:reelId/collections/:collectionId",
+  authenticate,
+  removeReelCollectionHandler,
+);
+
+// Reel Notes (Sub-resource routes)
+router.get("/:reelId/notes", authenticate, listNotesHandler);
+router.post("/:reelId/notes", authenticate, createNoteHandler);
 
 export default router;

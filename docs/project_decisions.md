@@ -1096,17 +1096,31 @@ These principles apply throughout ReelVault development:
   - Many-to-Many junction routes on Reels (`POST /reels/:reelId/categories/:categoryId`, `DELETE /reels/:reelId/categories/:categoryId`).
   - Mounted in `app.ts` under `/api/v1/categories`.
 
+- Complete Collections Management Module (`/api/v1/collections`):
+  - Validation with Zod enforcing 1–150 character collection names and optional descriptions.
+  - Repository layer with M:N junction operations (`CollectionReel`), unique constraint indexing, and `_count` aggregation.
+  - Service layer with duplicate name conflict prevention, partial update handling, and dual-resource ownership checks.
+  - Controller & Routes (`GET /collections`, `POST /collections`, `GET /collections/:id`, `PATCH /collections/:id`, `DELETE /collections/:id`).
+  - Many-to-Many junction routes on Reels (`POST /reels/:reelId/collections/:collectionId`, `DELETE /reels/:reelId/collections/:collectionId`).
+  - Mounted in `app.ts` under `/api/v1/collections`.
+
+- Complete Notes Management Module (`/api/v1/reels/:reelId/notes`, `/api/v1/notes/:noteId`):
+  - Validation with Zod enforcing trimmed 1–5000 character note content.
+  - Repository layer (`createNote`, `findNotesByReelId`, `findNoteByIdAndUserId`, `updateNoteById`, `deleteNoteById`) utilizing relation filters (`reel: { userId }`) for multi-tenant isolation without denormalizing `userId`.
+  - Service layer (`addNoteToReel`, `getNotesForReel`, `updateNote`, `deleteNote`) enforcing ownership validation and throwing 404s on unauthorized/non-existent resources.
+  - Controller & Routes:
+    - Sub-resource routes: `POST /api/v1/reels/:reelId/notes` (201 Created), `GET /api/v1/reels/:reelId/notes` (200 OK).
+    - Top-level shallow routes: `PATCH /api/v1/notes/:noteId` (200 OK), `DELETE /api/v1/notes/:noteId` (204 No Content).
+  - Mounted in `reels.routes.ts` and `app.ts` under `/api/v1/notes`.
+
 ## Currently Working On
 
-- Next Module: Collections Management (`/api/v1/collections`):
-  - Step 1: Validation, Types & Repository (`collections.validation.ts`, `collections.types.ts`, `collections.repository.ts`).
-  - Step 2: Service layer: duplicate name detection and Reel grouping operations.
-  - Step 3: Controller & routes (`POST /collections`, `GET /collections`, `GET /collections/:id`, `PATCH /collections/:id`, `DELETE /collections/:id`, `POST/DELETE /reels/:reelId/collections/:collectionId`).
-  - Step 4: Mount in `app.ts` and verify.
+- Verification & Postman Testing of the Notes Module.
 
 ## Immediate Next Task
 
-Proceed to Step 1 of the Collections Module: create `collections.validation.ts`, `collections.types.ts`, and `collections.repository.ts`.
+- Test Notes endpoints in Postman.
+- Plan the Background Job Processing / Ingestion & Rediscovery Engine (BullMQ + Redis setup).
 
 ---
 

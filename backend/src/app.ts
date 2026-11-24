@@ -6,6 +6,8 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
 import reelRoutes from "./modules/reels/reels.routes.js";
 import categoryRoutes from "./modules/categories/categories.routes.js";
+import collectionRoutes from "./modules/collections/collections.routes.js";
+import noteRoutes from "./modules/notes/notes.routes.js";
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/reels", reelRoutes);
 app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/collections", collectionRoutes);
+app.use("/api/v1/notes", noteRoutes);
 
 app.use(errorMiddleware);
 
